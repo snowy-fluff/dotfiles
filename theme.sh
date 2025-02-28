@@ -33,6 +33,7 @@ fi
 
 # Install missing packages
 if [ ${#TO_BE_INSTALLED_DEPS[@]} -gt 0 ]; then
+    sudo apt update
     sudo apt install "${TO_BE_INSTALLED_DEPS[@]}" -y
 fi
 
