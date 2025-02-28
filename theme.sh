@@ -32,7 +32,7 @@ THEME_DEST_DIR="/home/$SUDO_USER/.themes"
 if [ -d "Catppuccin-GTK-Theme" ]; then
     echo "Directory 'Catppuccin-GTK-Theme' already exists, skipping git clone."
 else
-    git clone https://github.com/0x-FFFFFF/Catppuccin-GTK-Theme.git
+    sudo -u $SUDO_USER git clone https://github.com/0x-FFFFFF/Catppuccin-GTK-Theme.git
 fi
 
 echo "Installing theme to $THEME_DEST_DIR"
