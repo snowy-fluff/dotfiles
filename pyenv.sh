@@ -3,7 +3,10 @@
 DEPS="build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev curl git libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev"
 INSTALLED_DEPS=$(dpkg-query -W -f='${binary:Package}\n')
 TO_BE_INSTALLED_DEPS=()
-HOME="/home/$SUDO_USER"
+
+if [ "$EUID" -eq 0 ]; then
+    HOME="/home/$SUDO_USER"
+fi
 
 # Check if the package is already installed
 for DEP in $DEPS; do
