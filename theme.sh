@@ -23,11 +23,11 @@ if [ ${#TO_BE_INSTALLED_DEPS[@]} -gt 0 ]; then
 fi
 
 # Icons destination directory
-ICON_DEST_DIR="${HOME}/.icons"
-[ "$EUID" -eq 0 ] && ICON_DEST_DIR="/usr/share/icons"
+ICON_DEST_DIR="/home/$SUDO_USER/.icons"
+# [ "$EUID" -eq 0 ] && ICON_DEST_DIR="/usr/share/icons"
 
-THEME_DEST_DIR="$HOME/.themes"
-[ "$EUID" -eq 0 ] && THEME_DEST_DIR="/usr/share/themes"
+THEME_DEST_DIR="/home/$SUDO_USER/.themes"
+# [ "$EUID" -eq 0 ] && THEME_DEST_DIR="/usr/share/themes"
 
 if [ -d "Catppuccin-GTK-Theme" ]; then
     echo "Directory 'Catppuccin-GTK-Theme' already exists, skipping git clone."
@@ -36,14 +36,15 @@ else
 fi
 
 echo "Installing theme to $THEME_DEST_DIR"
-./Catppuccin-GTK-Theme/themes/install.sh "$@" > /dev/null 2>&1
+sudo -u $SUDO_USER ./Catppuccin-GTK-Theme/themes/install.sh "$@" > /dev/null 2>&1
+
+if [ ! -d "$ICON_DEST_DIR" ]; then
+    echo "Making $ICON_DEST_DIR directory."
+    mkdir "$ICON_DEST_DIR"
+fi
 
 echo "Copying icons to $ICON_DEST_DIR"
-if [ "$EUID" -eq 0 ]; then
-    sudo cp -ra ./Catppuccin-GTK-Theme/icons/* "$ICON_DEST_DIR"
-else
-    cp -ra ./Catppuccin-GTK-Theme/icons/* "$ICON_DEST_DIR"
-fi
+cp -ra ./Catppuccin-GTK-Theme/icons/* "$ICON_DEST_DIR"
 
 echo "Cleaning up"
 rm -rf ./Catppuccin-GTK-Theme
