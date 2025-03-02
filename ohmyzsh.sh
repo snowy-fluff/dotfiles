@@ -34,3 +34,11 @@ if [ -d $OMZSH_DIR ]; then
 fi
 
 echo "-y" | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+if [ "$EUID" -eq 0 ]; then
+    sudo chown -R $SUDO_USER:$SUDO_USER $OMZSH_DIR
+
+    if [ -f $HOME/.zshrc ]; then
+        sudo chown $SUDO_USER:$SUDO_USER $HOME/.zshrc
+    fi
+fi

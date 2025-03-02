@@ -69,7 +69,7 @@ for URL in "${URLS[@]}"; do
     FILENAME=$(basename "$URL" | sed 's/%20/ /g')
     echo "Downloading $FILENAME..."
     curl -fsSL "$URL" -o "$FILENAME"
-    
+
     if [ $? -eq 0 ]; then
         echo "$FILENAME downloaded successfully."
     else

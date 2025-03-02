@@ -56,7 +56,7 @@ for FILE in "${FILES[@]}"; do
     if [ -f "$FILE" ]; then
         for LINE in "${PYENV_ENV[@]}"; do
             if ! grep -qF "$LINE" "$FILE"; then
-                echo "$LINE" >> "$FILE"
+                echo "$LINE" >>"$FILE"
             fi
         done
     fi

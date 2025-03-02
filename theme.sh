@@ -44,12 +44,15 @@ else
 fi
 
 echo "Installing theme to $THEME_DEST_DIR"
-sudo -u $SUDO_USER ./Catppuccin-GTK-Theme/themes/install.sh "$@" > /dev/null 2>&1
+sudo -u $SUDO_USER ./Catppuccin-GTK-Theme/themes/install.sh "$@" >/dev/null 2>&1
 
 if [ ! -d "$ICON_DEST_DIR" ]; then
     echo "Making $ICON_DEST_DIR directory."
     mkdir "$ICON_DEST_DIR"
 fi
+
+echo "Removing chrome icons."
+find ./Catppuccin-GTK-Theme/icons -name "*chrome*" -delete
 
 echo "Copying icons to $ICON_DEST_DIR"
 cp -ra ./Catppuccin-GTK-Theme/icons/* $ICON_DEST_DIR
