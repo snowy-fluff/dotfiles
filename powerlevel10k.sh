@@ -15,11 +15,6 @@ for DEP in $DEPS; do
     fi
 done
 
-if [ "$EUID" -ne 0 ] && [ -n "$TO_BE_INSTALLED_DEPS" ]; then
-    echo "Cannot continue without root permission, missing dependencies detected."
-    exit 1
-fi
-
 # Install build dependencies
 if [ ${#TO_BE_INSTALLED_DEPS[@]} -gt 0 ]; then
     sudo apt update
@@ -43,6 +38,7 @@ fi
 
 if [ "$EUID" -eq 0 ]; then
     sudo -u $SUDO_USER git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+    sudo chown -R $SUDO_USER:$SUDO_USER "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
 else
     git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
 fi
@@ -82,6 +78,7 @@ echo "Refreshing font cache..."
 if [ "$(id -u)" -eq 0 ]; then
     sudo mkdir -p "$FONT_DIR/truetype/MesloLGS"
     sudo mv *.ttf "$FONT_DIR/truetype/MesloLGS"
+    sudo chown -R $SUDO_USER:$SUDO_USER "$FONT_DIR/truetype/MesloLGS"
     sudo fc-cache -frv
 else
     mkdir -p "$FONT_DIR/truetype/MesloLGS"

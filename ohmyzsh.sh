@@ -15,11 +15,6 @@ for DEP in $DEPS; do
     fi
 done
 
-if [ "$EUID" -ne 0 ] && [ -n "$TO_BE_INSTALLED_DEPS" ]; then
-    echo "Cannot continue without root permission, missing dependencies detected."
-    exit 1
-fi
-
 # Install build dependencies
 if [ ${#TO_BE_INSTALLED_DEPS[@]} -gt 0 ]; then
     sudo apt update
@@ -33,7 +28,7 @@ if [ -d $OMZSH_DIR ]; then
     rm $HOME/.zshrc
 fi
 
-echo "-y" | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 if [ "$EUID" -eq 0 ]; then
     sudo chown -R $SUDO_USER:$SUDO_USER $OMZSH_DIR

@@ -15,11 +15,6 @@ for DEP in $DEPS; do
     fi
 done
 
-if [ "$EUID" -ne 0 ] && [ -n "$TO_BE_INSTALLED_DEPS" ]; then
-    echo "Cannot continue without root permission, missing dependencies detected."
-    exit 1
-fi
-
 # Install build dependencies
 if [ ${#TO_BE_INSTALLED_DEPS[@]} -gt 0 ]; then
     sudo apt update
@@ -35,6 +30,10 @@ curl -fsSL https://pyenv.run | bash
 if [ ! -d "$HOME/.pyenv" ]; then
     echo "Failed to install pyenv, exiting."
     exit 1
+fi
+
+if [ "$EUID" -ne 0 ] && [ -n "$TO_BE_INSTALLED_DEPS" ]; then
+    sudo chown -R "$SUDO_USER:$SUDO_USER" "$HOME/.pyenv"
 fi
 
 # Prepare pyenv environment variables to add
