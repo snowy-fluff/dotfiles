@@ -7,10 +7,15 @@ YELLOW="\033[1;33m"
 BLUE="\033[0;34m";
 NC="\033[0m"
 
-echo -e "${BLUE}[*] Installing libxcb-cursor0...${NC}"
+DEPS=(
+    libxcb-cursor0
+    qtwayland5
+)
+
+echo -e "${BLUE}[*] Installing dependencies...${NC}"
 sudo apt update
-sudo apt install -y libxcb-cursor0
-echo -e "${GREEN}[+] Installed libxcb-cursor0${NC}"
+sudo apt install -y "${DEPS[@]}"
+echo -e "${GREEN}[+] Installed dependencies: ${DEPS[*]}${NC}"
 
 if [[ "${1:-}" != "--path" ]]; then
     echo -e "${YELLOW}[!] --path not provided; skipping PATH update.${NC}"
