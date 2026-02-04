@@ -111,11 +111,13 @@ info "Building python $PYVER..."
 [ "$VERBOSE" = true ] && pyenv install --verbose "$PYVER" || pyenv install "$PYVER"
 
 PYENV_PFX="$(pyenv prefix "$PYVER")"
-LIBPY="$PYENV_PFX/lib/libpython${PYVER%.*}.dylib"
+shopt -s nullglob
+LIBPY=("$PYENV_PFX"/lib/libpython${PYVER%.*}*.dylib); LIBPY="${LIBPY[0]:-}"
+shopt -u nullglob
 
 info "Build complete: $PYENV_PFX"
-if [ ! -f "$LIBPY" ]; then
-  error "libpython dylib not found at $LIBPY"
+if [ -z "$LIBPY" ] || [ ! -f "$LIBPY" ]; then
+  error "libpython dylib not found at $PYENV_PFX/lib/libpython${PYVER%.*}*.dylib"
 fi
 
 info "Switching IDA python version..."
