@@ -13,7 +13,7 @@ echo -e "${BLUE}[+] Installing Apple Color Emoji font...${RESET}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
-FONT_URL="https://github.com/samuelngs/apple-emoji-linux/releases/latest/download/AppleColorEmoji.ttf"
+FONT_URL="https://github.com/samuelngs/apple-emoji-linux/releases/latest/download/AppleColorEmoji-Linux.ttf"
 USER_FONT_DIR="$HOME/.local/share/fonts"
 SYSTEM_FONT_DIR="/usr/share/fonts/AppleColorEmoji"
 FONT_NAME="AppleColorEmoji.ttf"
