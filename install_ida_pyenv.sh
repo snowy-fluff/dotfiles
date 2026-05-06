@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RED="\033[1;31m"
-YELLOW="\033[1;33m"
-GREEN="\033[1;32m"
-CYAN="\033[1;36m"
-RESET="\033[0m"
-
 info()    { echo -e "${CYAN}[INFO]${RESET} $*"; }
 warn()    { echo -e "${YELLOW}[WARN]${RESET} $*"; }
 error()   { echo -e "${RED}[ERROR]${RESET} $*" >&2; exit 1; }
 success() { echo -e "${GREEN}[SUCCESS]${RESET} $*"; }
+
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/utils.sh"
+
+if ! utils::resolve_target_user; then
+    if [[ "$EUID" -eq 0 ]]; then
+        error "Refusing to run as root without an invoking user. Run as your user, or use sudo from your account."
+    fi
+fi
+
+run_as_target() {
+    utils::run_as_target "$1"
+}
 
 DEFAULT_PYVER="3.14.2"
 PYVER=""
@@ -47,11 +53,11 @@ PYVER="${PYVER:-$DEFAULT_PYVER}"
 export PYTHON_CONFIGURE_OPTS="--enable-optimizations --with-lto"
 export PYTHON_CFLAGS="-march=native -mtune=native"
 
-command -v pyenv >/dev/null 2>&1 || error "pyenv not found."
+run_as_target 'command -v pyenv >/dev/null 2>&1' || error "pyenv not found for $TARGET_USER."
 
 info "Searching for IDA installations..."
 ida_candidates=()
-for pattern in /opt/*IDA* /opt/*ida* /usr/local/*IDA* /usr/local/*ida* "$HOME"/.local/*IDA* "$HOME"/.local/*ida* "$HOME"/IDA* "$HOME"/*IDA* "$HOME"/*ida*; do
+for pattern in /opt/*IDA* /opt/*ida* /usr/local/*IDA* /usr/local/*ida* "$TARGET_HOME"/.local/*IDA* "$TARGET_HOME"/.local/*ida* "$TARGET_HOME"/IDA* "$TARGET_HOME"/*IDA* "$TARGET_HOME"/*ida*; do
     for p in $pattern; do
         [[ -e "$p" ]] && ida_candidates+=("$p")
     done
@@ -66,7 +72,7 @@ ida_candidates=("${tmp[@]}")
 if [ ${#ida_candidates[@]} -eq 0 ]; then
     while IFS= read -r -d $'\0' d; do
         ida_candidates+=("$d")
-    done < <(find /opt /usr/local "$HOME" -maxdepth 4 \( -type d -name "*IDA*" -o -type d -name "*ida*" \) -print0 2>/dev/null || true)
+    done < <(find /opt /usr/local "$TARGET_HOME" -maxdepth 4 \( -type d -name "*IDA*" -o -type d -name "*ida*" \) -print0 2>/dev/null || true)
 fi
 
 [ ${#ida_candidates[@]} -gt 0 ] || error "No IDA installations found under /opt, /usr/local, or home."
@@ -116,19 +122,19 @@ info "Detected IDA: ${GREEN}$IDA_APP${RESET}"
 [ -n "$IDA_SWITCH" ] || error "idapyswitch not found under $IDA_APP"
 [ -x "$IDA_SWITCH" ] || warn "idapyswitch found but not executable: $IDA_SWITCH"
 
-if command -v pyenv >/dev/null 2>&1 && pyenv versions --bare | grep -qx "$PYVER"; then
+if run_as_target "pyenv versions --bare | grep -qx '$PYVER'"; then
     warn "Existing pyenv version $PYVER found — removing for clean rebuild."
-    pyenv uninstall -f "$PYVER"
+    run_as_target "pyenv uninstall -f '$PYVER'"
 fi
 
 info "Building python $PYVER..."
 if [ "$VERBOSE" = true ]; then
-    pyenv install --verbose "$PYVER"
+    run_as_target "pyenv install --verbose '$PYVER'"
 else
-    pyenv install "$PYVER"
+    run_as_target "pyenv install '$PYVER'"
 fi
 
-PYENV_PFX="$(pyenv prefix "$PYVER")"
+PYENV_PFX="$(run_as_target "pyenv prefix '$PYVER'")"
 LIBPY=""
 
 shopt -s nullglob

@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GREEN="\033[32m"
-YELLOW="\033[33m"
-BLUE="\033[34m"
-RED="\033[31m"
-RESET="\033[0m"
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/utils.sh"
 
 GENERIC_CONF="/etc/fonts/conf.d/60-generic.conf"
 
@@ -15,21 +11,27 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 DEB_URL="https://github.com/samuelngs/apple-emoji-ttf/releases/latest/download/fonts-apple-color-emoji.deb"
-USER_FONT_DIR="$HOME/.local/share/fonts"
 SYSTEM_FONT_DIR="/usr/share/fonts/AppleColorEmoji"
 FONT_NAME="AppleColorEmoji.ttf"
 DEB_NAME="fonts-apple-color-emoji.deb"
+
+utils::refuse_root_user_install "${1:-user}"
+
+if ! utils::resolve_target_user; then
+    TARGET_USER="${USER:-root}"
+    TARGET_HOME="$HOME"
+fi
+
+USER_FONT_DIR="$TARGET_HOME/.local/share/fonts"
 
 if [[ "${1:-}" == "--system" ]]; then
     if [[ "$EUID" -ne 0 ]]; then
         exec sudo bash "$0" --system "${@:2}"
     fi
     INSTALL_DIR="$SYSTEM_FONT_DIR"
-    SUDO=""
     echo -e "${YELLOW}[+] System-wide install selected.${RESET}"
 else
     INSTALL_DIR="$USER_FONT_DIR"
-    SUDO=""
     echo -e "${YELLOW}[+] User install selected.${RESET}"
 fi
 
@@ -61,7 +63,7 @@ else
     chmod 644 "$INSTALL_DIR/$FONT_NAME"
 fi
 
-CONFIG_DIR="$HOME/.config/fontconfig"
+CONFIG_DIR="$TARGET_HOME/.config/fontconfig"
 CONFIG_FILE="$CONFIG_DIR/fonts.conf"
 
 echo -e "${BLUE}[+] Updating fontconfig rules...${RESET}"

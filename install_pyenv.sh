@@ -1,31 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RED="\033[0;31m"
-GREEN="\033[0;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[0;34m"
-PURPLE="\033[0;35m"
-NC="\033[0m"
+source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/utils.sh"
 
 echo -e "${BLUE}[+] Preparing pyenv installer...${NC}"
 
-if [[ "$EUID" -eq 0 ]]; then
-    INVOKER="${SUDO_USER:-}"
-    if [[ -z "$INVOKER" ]]; then
+if ! utils::resolve_target_user; then
+    if [[ "$EUID" -eq 0 ]]; then
         echo -e "${RED}[-] Refusing to run as root without an invoking user. Run the script as your user or with sudo from your account.${NC}"
         exit 1
     fi
-    TARGET_USER="$INVOKER"
-    TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
-    if [[ -z "$TARGET_HOME" ]]; then
-        TARGET_HOME="/home/$TARGET_USER"
-    fi
-    AS_ROOT=true
-else
-    TARGET_USER="$USER"
-    TARGET_HOME="$HOME"
-    AS_ROOT=false
 fi
 
 echo -e "${YELLOW}[*] Target user:${NC} ${TARGET_USER}"
@@ -61,7 +45,6 @@ echo -e "${PURPLE}[*] Removing any existing pyenv at ${TARGET_HOME}/.pyenv (if p
 if [[ -e "$TARGET_HOME/.pyenv" ]]; then
     if [[ "$AS_ROOT" == true ]]; then
         rm -rf "$TARGET_HOME/.pyenv"
-        chown -R "$TARGET_USER:$TARGET_USER" "$TARGET_HOME" 2>/dev/null || true
     else
         rm -rf "$TARGET_HOME/.pyenv"
     fi
@@ -111,7 +94,7 @@ append_lines_if_missing() {
     for line in "${lines[@]}"; do
         if [[ "$AS_ROOT" == true ]]; then
             if ! sudo -u "$TARGET_USER" grep -qxF "$line" "$file" 2>/dev/null; then
-                sudo -u "$TARGET_USER" bash -lc "printf '%s\n' \"$line\" >> \"$file\""
+                sudo -u "$TARGET_USER" env APPEND_LINE="$line" APPEND_FILE="$file" bash -lc 'printf "%s\n" "$APPEND_LINE" >> "$APPEND_FILE"'
                 echo -e "${GREEN}[+] Added to $(basename "$file"):${NC} $line"
             fi
         else
