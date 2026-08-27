@@ -45,8 +45,16 @@ utils::resolve_target_user() {
 utils::run_as_target() {
     local command="$1"
     if [[ "${AS_ROOT:-false}" == true ]]; then
-        sudo -u "$TARGET_USER" HOME="$TARGET_HOME" bash -lc "$command"
+        sudo -u "$TARGET_USER" env HOME="$TARGET_HOME" bash -lc "$command"
     else
         HOME="$TARGET_HOME" bash -lc "$command"
+    fi
+}
+
+utils::exec_as_target() {
+    if [[ "${AS_ROOT:-false}" == true ]]; then
+        sudo -u "$TARGET_USER" env HOME="$TARGET_HOME" "$@"
+    else
+        HOME="$TARGET_HOME" "$@"
     fi
 }

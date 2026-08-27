@@ -9,18 +9,17 @@ success() { echo -e "${GREEN}[SUCCESS]${RESET} $*"; }
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/utils.sh"
 
 if ! utils::resolve_target_user; then
-    if [[ "$EUID" -eq 0 ]]; then
-        error "Refusing to run as root without an invoking user. Run as your user, or use sudo from your account."
-    fi
+    error "Refusing to run as root without an invoking user. Run as your user, or use sudo from your account."
 fi
 
 run_as_target() {
     utils::run_as_target "$1"
 }
 
-DEFAULT_PYVER="3.14.2"
+DEFAULT_PYVER="3.14.7"
 PYVER=""
 VERBOSE=false
+REBUILD=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -28,14 +27,17 @@ while [[ $# -gt 0 ]]; do
             VERBOSE=true
             shift
         ;;
+        --rebuild)
+            REBUILD=true
+            shift
+        ;;
         --help|-h)
-            echo "Usage: $0 [--verbose|-v] [PYVER]"
-            echo "Example: $0 --verbose 3.14.2"
+            echo "Usage: $0 [--verbose|-v] [--rebuild] [PYVER]"
+            echo "Example: $0 --verbose 3.14.7"
             exit 0
         ;;
         -*)
-            warn "Unknown option: $1 (ignoring)"
-            shift
+            error "Unknown option: $1"
         ;;
         *)
             if [[ -z "$PYVER" ]]; then
@@ -50,18 +52,33 @@ done
 
 PYVER="${PYVER:-$DEFAULT_PYVER}"
 
-export PYTHON_CONFIGURE_OPTS="--enable-optimizations --with-lto"
-export PYTHON_CFLAGS="-march=native -mtune=native"
+if [[ ! "$PYVER" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+    error "Python version must be a numeric major.minor or major.minor.patch value: $PYVER"
+fi
+
+REQUESTED_PYVER="$PYVER"
+PYTHON_CONFIGURE_OPTS="--enable-shared --enable-optimizations --with-lto"
+PYTHON_CFLAGS="-march=native -mtune=native"
 
 run_as_target 'command -v pyenv >/dev/null 2>&1' || error "pyenv not found for $TARGET_USER."
 
+PYVER="$(run_as_target "pyenv latest -k '$REQUESTED_PYVER'")" || \
+    error "No pyenv CPython definition matches $REQUESTED_PYVER."
+if [[ ! "$PYVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    error "Resolved pyenv version is not a stable CPython release: $PYVER"
+fi
+PYENV_NAME="ida-$PYVER"
+info "Resolved Python $REQUESTED_PYVER to $PYVER (pyenv name: $PYENV_NAME)."
+
 info "Searching for IDA installations..."
 ida_candidates=()
-for pattern in /opt/*IDA* /opt/*ida* /usr/local/*IDA* /usr/local/*ida* "$TARGET_HOME"/.local/*IDA* "$TARGET_HOME"/.local/*ida* "$TARGET_HOME"/IDA* "$TARGET_HOME"/*IDA* "$TARGET_HOME"/*ida*; do
-    for p in $pattern; do
-        [[ -e "$p" ]] && ida_candidates+=("$p")
-    done
+shopt -s nullglob
+for p in /opt/*IDA* /opt/*ida* /usr/local/*IDA* /usr/local/*ida* \
+    "$TARGET_HOME"/.local/*IDA* "$TARGET_HOME"/.local/*ida* \
+    "$TARGET_HOME"/IDA* "$TARGET_HOME"/*IDA* "$TARGET_HOME"/*ida*; do
+    [[ -e "$p" ]] && ida_candidates+=("$p")
 done
+shopt -u nullglob
 
 tmp=()
 for p in "${ida_candidates[@]:-}"; do
@@ -122,40 +139,51 @@ info "Detected IDA: ${GREEN}$IDA_APP${RESET}"
 [ -n "$IDA_SWITCH" ] || error "idapyswitch not found under $IDA_APP"
 [ -x "$IDA_SWITCH" ] || warn "idapyswitch found but not executable: $IDA_SWITCH"
 
-if run_as_target "pyenv versions --bare | grep -qx '$PYVER'"; then
-    warn "Existing pyenv version $PYVER found — removing for clean rebuild."
-    run_as_target "pyenv uninstall -f '$PYVER'"
+if run_as_target "pyenv versions --bare | grep -qx '$PYENV_NAME'"; then
+    if [[ "$REBUILD" == true ]]; then
+        warn "Rebuilding the existing IDA-specific pyenv version $PYENV_NAME."
+        run_as_target "pyenv uninstall -f '$PYENV_NAME'"
+    else
+        info "Reusing existing IDA-specific pyenv version $PYENV_NAME."
+    fi
 fi
 
-info "Building python $PYVER..."
-if [ "$VERBOSE" = true ]; then
-    run_as_target "pyenv install --verbose '$PYVER'"
-else
-    run_as_target "pyenv install '$PYVER'"
+if ! run_as_target "pyenv versions --bare | grep -qx '$PYENV_NAME'"; then
+    info "Building Python $PYVER as $PYENV_NAME..."
+    BUILD_ENV="env PYTHON_CONFIGURE_OPTS='$PYTHON_CONFIGURE_OPTS' PYTHON_CFLAGS='$PYTHON_CFLAGS'"
+    if [[ "$VERBOSE" == true ]]; then
+        run_as_target "$BUILD_ENV pyenv install --verbose '$PYVER:$PYENV_NAME'"
+    else
+        run_as_target "$BUILD_ENV pyenv install '$PYVER:$PYENV_NAME'"
+    fi
 fi
 
-PYENV_PFX="$(run_as_target "pyenv prefix '$PYVER'")"
+PYENV_PFX="$(run_as_target "pyenv prefix '$PYENV_NAME'")"
 LIBPY=""
+PYTHON_ABI="${PYVER%.*}"
 
 shopt -s nullglob
-candidates=( "$PYENV_PFX"/lib/libpython${PYVER%.*}*.so* "$PYENV_PFX"/lib/libpython${PYVER%.*}.so* )
+candidates=( "$PYENV_PFX"/lib/libpython${PYTHON_ABI}*.so* )
 shopt -u nullglob
 
 if [ ${#candidates[@]} -gt 0 ]; then
-    IFS=$'\n' sorted=($(printf '%s\n' "${candidates[@]}" | sort -V))
+    sorted=()
+    while IFS= read -r candidate; do
+        sorted+=("$candidate")
+    done < <(printf '%s\n' "${candidates[@]}" | sort -V)
     LIBPY="${sorted[0]}"
 else
-    LIBPY="$(find "$PYENV_PFX/lib" -maxdepth 1 -type f -name "libpython${PYVER%.*}*.so*" -print | sort -V | head -n1 || true)"
+    LIBPY="$(find "$PYENV_PFX/lib" -maxdepth 1 \( -type f -o -type l \) -name "libpython${PYTHON_ABI}*.so*" -print | sort -V | head -n1 || true)"
 fi
 
 info "Build complete: $PYENV_PFX"
 if [ -z "$LIBPY" ]; then
-    error "libpython shared object not found under $PYENV_PFX/lib for python $PYVER"
+    error "libpython shared object not found under $PYENV_PFX/lib for Python $PYVER. Rerun with --rebuild."
 fi
 
 info "Switching IDA python version..."
 if [ -x "$IDA_SWITCH" ]; then
-    "$IDA_SWITCH" --force-path "$LIBPY" || {
+    utils::exec_as_target "$IDA_SWITCH" --force-path "$LIBPY" || {
         warn "idapyswitch failed. Try manually:"
         echo "  $IDA_SWITCH --force-path $LIBPY"
         error "Registration failed."
