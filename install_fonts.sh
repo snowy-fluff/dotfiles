@@ -180,16 +180,29 @@ fonts::register_catalog() {
 
     fonts::register \
         "sf-mono" \
-        "SF Mono Nerd Font Mono" \
+        "SF Mono Nerd Font" \
         "fluffy-flufff/SF-Mono-Nerd-Font" \
-        "SFMonoNerdFontMono.tar.xz" \
+        "SFMonoNerdFont.tar.xz" \
         "tar.xz" \
-        "SFMonoNerdFontMono-*.otf" \
-        "SF Mono Nerd Font Mono" \
-        "SFMonoNerdFontMono" \
+        "SFMonoNerdFont-*.otf" \
+        "SF Mono Nerd Font" \
+        "SFMonoNerdFont" \
         "none" \
         ".fonts/SFMonoNerd" \
         "/usr/share/fonts/SFMonoNerd"
+
+    fonts::register \
+        "sf-mono-terminal" \
+        "SF Mono Terminal Nerd Font" \
+        "fluffy-flufff/SF-Mono-Nerd-Font" \
+        "SFMonoTerminalNerdFont.tar.xz" \
+        "tar.xz" \
+        "SFMonoTerminalNerdFont-*.ttf" \
+        "SF Mono Terminal Nerd Font" \
+        "SFMonoTerminalNerdFont" \
+        "none" \
+        "" \
+        ""
 
     fonts::register \
         "apple-emoji" \
@@ -227,6 +240,7 @@ EOF
 
 Special selector:
   all              Install every registered font
+  sf-mono          Install both SF Mono Nerd Font families
 
 Options:
   --user           Install for the current user (default)
@@ -289,13 +303,20 @@ fonts::select_argument() {
     local requested_id="$1"
     local id
 
-    if [[ "$requested_id" == "all" ]]; then
-        for id in "${FONT_IDS[@]}"; do
-            fonts::select "$id"
-        done
-    else
-        fonts::select "$requested_id"
-    fi
+    case "$requested_id" in
+        all)
+            for id in "${FONT_IDS[@]}"; do
+                fonts::select "$id"
+            done
+        ;;
+        sf-mono)
+            fonts::select "sf-mono"
+            fonts::select "sf-mono-terminal"
+        ;;
+        *)
+            fonts::select "$requested_id"
+        ;;
+    esac
 }
 
 fonts::parse_args() {
@@ -342,7 +363,7 @@ fonts::parse_args() {
                 fonts::usage_error "Unknown option: $argument"
             ;;
             *)
-                fonts::select "$argument"
+                fonts::select_argument "$argument"
             ;;
         esac
         shift
@@ -670,6 +691,19 @@ fonts::detect_legacy() {
     fi
     [[ -n "$legacy_path" ]] && fonts::record_legacy_font_path "$id" "$legacy_path"
 
+    # The previous SF Mono release shipped a single "Mono" family into this
+    # managed destination. Keep it separate from the source repository's much
+    # older ~/.fonts installation so --force can migrate either layout.
+    if [[ "$id" == "sf-mono" ]]; then
+        if [[ "$SCOPE" == "system" ]]; then
+            fonts::record_legacy_font_path \
+                "$id" "/usr/local/share/fonts/SFMonoNerdFontMono"
+        else
+            fonts::record_legacy_font_path \
+                "$id" "$INSTALL_ROOT/SFMonoNerdFontMono"
+        fi
+    fi
+
     if [[ "$SCOPE" == "system" ]] && [[ "$id" == "jetbrains-mono" ]]; then
         fonts::record_legacy_font_path \
             "$id" "/usr/share/fonts/truetype/JetBrainsMonoNerd"
@@ -929,6 +963,18 @@ fonts::set_legacy_basenames() {
         ;;
         sf-mono)
             LEGACY_BASENAMES=(
+                SFMonoNerdFontMono-Bold.otf
+                SFMonoNerdFontMono-BoldItalic.otf
+                SFMonoNerdFontMono-Heavy.otf
+                SFMonoNerdFontMono-HeavyItalic.otf
+                SFMonoNerdFontMono-Italic.otf
+                SFMonoNerdFontMono-Light.otf
+                SFMonoNerdFontMono-LightItalic.otf
+                SFMonoNerdFontMono-Medium.otf
+                SFMonoNerdFontMono-MediumItalic.otf
+                SFMonoNerdFontMono-Regular.otf
+                SFMonoNerdFontMono-SemiBold.otf
+                SFMonoNerdFontMono-SemiBoldItalic.otf
                 "SFMono Bold Italic Nerd Font Complete.otf"
                 "SFMono Bold Nerd Font Complete.otf"
                 "SFMono Heavy Italic Nerd Font Complete.otf"
@@ -942,6 +988,9 @@ fonts::set_legacy_basenames() {
                 "SFMono Semibold Italic Nerd Font Complete.otf"
                 "SFMono Semibold Nerd Font Complete.otf"
             )
+        ;;
+        sf-mono-terminal)
+            LEGACY_BASENAMES=()
         ;;
         apple-emoji)
             LEGACY_BASENAMES=(AppleColorEmoji.ttf)
